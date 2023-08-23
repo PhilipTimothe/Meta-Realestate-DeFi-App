@@ -2,5 +2,6 @@
   "[python]": {
     "editor.defaultFormatter": "ms-python.black-formatter"
   },
-  "python.formatting.provider": "none"
+  "python.formatting.provider": "none",
+  "solidity.compileUsingRemoteVersion": "v0.5.0+commit.1d4f565a"
 }
