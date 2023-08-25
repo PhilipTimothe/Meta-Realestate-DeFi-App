@@ -9,6 +9,10 @@ contract RealEstateToken is ERC721Full {
     mapping(uint256 => bool) public tokensForSale;
     mapping(uint256 => uint256) public tokenPrice;
     
+    event pendingTokens(uint256[] tokens);
+    event approvedTokens(uint256[] resultTokens, uint256[] resultPrices);
+    event NFTPurchased(address indexed buyer, uint256 tokenId, uint256 value);
+    
     constructor() public ERC721Full("RealEstateToken", "RET") {
         admin = msg.sender;
     }
@@ -38,7 +42,7 @@ contract RealEstateToken is ERC721Full {
         tokenPrice[tokenId] = price;
     }
     
-    function getTokensForSale() external view returns (uint256[] memory, uint256[] memory) {
+    function getTokensForSale() external returns (uint256[] memory, uint256[] memory) {
         uint256 totalTokens = totalSupply();
         uint256[] memory tokensForSaleList = new uint256[](totalTokens);
         uint256[] memory pricesForSaleList = new uint256[](totalTokens);
@@ -57,10 +61,11 @@ contract RealEstateToken is ERC721Full {
             resultTokens[i] = tokensForSaleList[i];
             resultPrices[i] = pricesForSaleList[i];
         }
+            emit approvedTokens(resultTokens, resultPrices);
             return (resultTokens, resultPrices);
         }
  
-    function getPendingTokens() external view onlyAdmin returns (uint256[] memory) {
+    function getPendingTokens() external onlyAdmin returns (uint256[] memory) {
         uint256 totalTokens = totalSupply();
         uint256[] memory pendingTokenIds = new uint256[](totalTokens);
         uint256 count = 0;
@@ -74,6 +79,7 @@ contract RealEstateToken is ERC721Full {
         for (uint256 i = 0; i < count; i++) {
             resultIds[i] = pendingTokenIds[i];
         }
+        emit pendingTokens(resultIds);
         return (resultIds);
     }
 
@@ -109,5 +115,37 @@ contract RealEstateToken is ERC721Full {
             resultIds[i] = approvedTokenIds[i];
         }
         return resultIds;
+    }
+
+    function purchaseNFT(uint256 tokenId) public payable {
+        require(tokensForSale[tokenId], "Token is not listed for sale");
+        require(tokenPrice[tokenId] > 0, "Token price must be greater than zero");
+        require(msg.value > tokenPrice[tokenId], "Insufficient Ether sent");
+        
+        // Calculate the extra amount sent
+        // uint256 extraAmount = msg.value - tokenPrice[tokenId];
+        
+        // Get the current owner of the NFT
+        address payable seller = address(uint160(ownerOf(tokenId)));
+        
+        // Transfer the NFT from the seller to the buyer using safeTransferFrom
+        super.safeTransferFrom(seller, msg.sender, tokenId);
+        // Transfer the listed price to the seller
+        bool sellerTransferSuccess = seller.send(msg.value);
+        require(sellerTransferSuccess, "Transfer to seller failed");
+        
+        
+        // Refund the extra amount to the buyer
+        // if (extraAmount > 0) {
+        //     bool refundSuccess = msg.sender.send(extraAmount);
+        //     require(refundSuccess, "Refund to buyer failed");
+        // }
+        
+        // Mark the token as sold and remove it from the sale list
+        tokensForSale[tokenId] = false;
+        tokenPrice[tokenId] = 0;
+        
+        // Emit an event to log the purchase
+        emit NFTPurchased(msg.sender, tokenId, msg.value);
     }
 }
